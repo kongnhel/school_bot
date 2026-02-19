@@ -1,0 +1,45 @@
+const mysql = require('mysql2/promise');
+require('dotenv').config();
+
+const pool = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD || '', // បើក្នុង .env ទទេ វានឹងយក string ទទេ
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT || 3306,
+  waitForConnections: true,
+  connectionLimit: 10
+});
+
+const initDb = async () => {
+  try {
+    const connection = await pool.getConnection();
+    console.log("🚀 កំពុងតភ្ជាប់ទៅកាន់ MySQL...");
+    
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS students (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        fullname VARCHAR(255),
+        phone VARCHAR(50),
+        course VARCHAR(100),
+        registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+    await connection.query(`
+  CREATE TABLE IF NOT EXISTS majors (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    major_name VARCHAR(100) UNIQUE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+`);
+    // បន្ថែមក្នុង initDb function
+
+    connection.release();
+    console.log("✅ តភ្ជាប់ជោគជ័យ និងមាន Table រួចរាល់!");
+  } catch (err) {
+    console.error("❌ ខូចការហើយមេ! តភ្ជាប់ Database អត់បានទេ៖", err.message);
+  }
+};
+
+
+
+module.exports = { pool, initDb };

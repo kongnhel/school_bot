@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NMU Admin Pro</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+    <div class="header">
+        <h1>NMU Admin Panel</h1>
+        <p>គ្រប់គ្រងទិន្នន័យសាលារបស់អ្នកដោយទំនុកចិត្ត</p>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('majors', this)">
+            <i class="fas fa-graduation-cap"></i> ជំនាញ
+        </div>
+        <div class="tab" onclick="switchTab('students', this)">
+            <i class="fas fa-users"></i> បញ្ជីសិស្ស
+        </div>
+    </div>
+
+    <div id="majors-section" class="content-section active">
+        <div id="major-list">
+            <% majors.forEach(major => { %>
+                <div class="card">
+                    <div class="info">
+                        <span class="badge">ID: <%= major.id %></span>
+                        <span class="title-text"><%= major.major_name %></span>
+                    </div>
+                    <div class="action-group">
+                        <button class="btn-icon btn-edit" onclick="openEditModal('<%= major.id %>', '<%= major.major_name %>')">
+                            <i class="fas fa-pen"></i>
+                        </button>
+                        <a href="/admin/majors/delete/<%= major.id %>" 
+                           class="btn-icon btn-delete" 
+                           onclick="return confirm('តើអ្នកពិតជាចង់លុបជំនាញនេះមែនទេ?')">
+                            <i class="far fa-trash-alt"></i>
+                        </a>
+                    </div>
+                </div>
+            <% }) %>
+        </div>
+        
+        <button class="fab-add" onclick="openAddModal()">
+            <i class="fas fa-plus"></i>
+        </button>
+    </div>
+
+    <div id="students-section" class="content-section">
+        <div class="search-row">
+            <div class="search-wrapper">
+                <i class="fas fa-search"></i>
+                <input type="text" id="studentSearch" class="search-input" placeholder="ស្វែងរកឈ្មោះសិស្ស..." onkeyup="filterStudents()">
+            </div>
+            <button class="btn-export" onclick="exportToCSV()">
+                <i class="fas fa-file-export"></i>
+            </button>
+        </div>
+
+        <div id="student-list">
+            <% if (students && students.length > 0) { %>
+                <% students.forEach(student => { %>
+                    <div class="card student-item">
+                        <div class="info">
+                            <span class="badge">Student ID: <%= student.id %></span>
+                            <span class="title-text student-name"><%= student.fullname %></span>
+                            <div class="sub-text">
+                                <span><i class="fas fa-phone-alt"></i> <%= student.phone %></span>
+                                <span><i class="fas fa-book-reader"></i> <%= student.course %></span>
+                            </div>
+                        </div>
+                        <a href="/admin/students/delete/<%= student.id %>" 
+                           class="btn-icon btn-delete" 
+                           onclick="return confirm('តើអ្នកពិតជាចង់លុបសិស្សនេះចេញពីបញ្ជីមែនទេ?')">
+                            <i class="far fa-trash-alt"></i>
+                        </a>
+                    </div>
+                <% }) %>
+            <% } else { %>
+                <div class="empty-state">
+                    <i class="fas fa-user-slash"></i>
+                    <p>មិនទាន់មានសិស្សចុះឈ្មោះនៅឡើយ</p>
+                </div>
+            <% } %>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>NMU School Management System • v2.1 Pro</p>
+    </div>
+
+    <div id="majorModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 id="modalTitle"><i class="fas fa-plus-circle"></i> បន្ថែមជំនាញថ្មី</h3>
+            <form id="majorForm" action="/admin/majors/add" method="POST">
+                <input type="text" name="major_name" id="major_name_input" class="modal-input" placeholder="បញ្ចូលឈ្មោះជំនាញ..." required>
+                <div class="modal-footer">
+                    <button type="button" class="btn-modal btn-cancel" onclick="closeModal()">បោះបង់</button>
+                    <button type="submit" class="btn-modal btn-save">រក្សាទុក</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+        tg.setHeaderColor('#f8fafc');
+
+        function switchTab(type, el) {
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(type + '-section').classList.add('active');
+            el.classList.add('active');
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+        }
+
+        // បើក Modal សម្រាប់ថែមថ្មី
+        function openAddModal() {
+            document.getElementById('modalTitle').innerHTML = '<i class="fas fa-plus-circle"></i> បន្ថែមជំនាញថ្មី';
+            document.getElementById('majorForm').action = '/admin/majors/add';
+            document.getElementById('major_name_input').value = '';
+            document.getElementById('majorModal').style.display = 'flex';
+        }
+
+        // បើក Modal សម្រាប់កែសម្រួល
+        function openEditModal(id, name) {
+            document.getElementById('modalTitle').innerHTML = '<i class="fas fa-edit"></i> កែសម្រួលជំនាញ';
+            document.getElementById('majorForm').action = '/admin/majors/update/' + id;
+            document.getElementById('major_name_input').value = name;
+            document.getElementById('majorModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('majorModal').style.display = 'none';
+        }
+
+        // បិទ Modal ពេលចុចក្រៅ Card
+        window.onclick = (e) => { if(e.target.id === 'majorModal') closeModal(); }
+
+        function filterStudents() {
+            let input = document.getElementById('studentSearch').value.toLowerCase();
+            let items = document.getElementsByClassName('student-item');
+            for (let i = 0; i < items.length; i++) {
+                let name = items[i].querySelector('.student-name').innerText.toLowerCase();
+                items[i].style.display = name.includes(input) ? "flex" : "none";
+            }
+        }
+
+        function exportToCSV() {
+            let csv = "\ufeffលេខសម្គាល់,ឈ្មោះពេញ,លេខទូរស័ព្ទ,ជំនាញ\n";
+            let items = document.querySelectorAll('.student-item');
+            items.forEach(item => {
+                if(item.style.display !== 'none') {
+                    let id = item.querySelector('.badge').innerText.replace('STUDENT ID: ', '');
+                    let name = item.querySelector('.student-name').innerText;
+                    let phone = item.querySelectorAll('.sub-text span')[0].innerText.trim();
+                    let course = item.querySelectorAll('.sub-text span')[1].innerText.trim();
+                    csv += `${id},"${name}","${phone}","${course}"\n`;
+                }
+            });
+            let blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            let link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `Students_Export.csv`;
+            link.click();
+        }
+    </script>
+</body>
+</html>
