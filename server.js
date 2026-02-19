@@ -21,8 +21,9 @@ bot.use(session());
 bot.use(stage.middleware());
 
 // --- ៣. WEB ROUTES (សម្រាប់ Admin Panel) ---
-
-app.get("/", (req, res) => res.send("Bot & Admin Panel is running! 🚀"));
+app.get("/", (req, res) =>
+  res.send("Bot & Admin Panel is running on Render! 🚀"),
+);
 
 app.get("/admin/panel", async (req, res) => {
   try {
@@ -102,7 +103,6 @@ app.get("/admin/students/delete/:id", async (req, res) => {
 });
 
 // --- ៤. មុខងារសម្រាប់ User (សិស្ស) ---
-
 bot.start((ctx) => {
   ctx.reply(
     `សួស្តី ${ctx.from.first_name}! សូមស្វាគមន៍មកកាន់សាលាយើង។`,
@@ -149,8 +149,13 @@ bot.action("REGISTER_NOW", (ctx) => {
 
 bot.command("panel", (ctx) => {
   if (ctx.from.id.toString() !== process.env.ADMIN_ID) return;
-  const webAppUrl =
-    "https://fusilly-nadene-recloseable.ngrok-free.dev/admin/panel";
+
+  // ⚠️ សំខាន់៖ បងត្រូវយក URL របស់ Render មកដាក់ជំនួស .ngrok-free.dev
+  // ឧទាហរណ៍: https://school-bot-app.onrender.com/admin/panel
+  const renderUrl =
+    process.env.WEB_APP_URL || "https://YOUR-APP-NAME.onrender.com";
+  const webAppUrl = `${renderUrl}/admin/panel`;
+
   ctx.reply(
     "🛠️ សូមចុចប៊ូតុងខាងក្រោមដើម្បីបើកផ្ទាំងគ្រប់គ្រង៖",
     Markup.inlineKeyboard([
@@ -159,7 +164,6 @@ bot.command("panel", (ctx) => {
   );
 });
 
-// ✅ មុខងារ Export ត្រឡប់មកវិញហើយ
 bot.command("export", async (ctx) => {
   if (ctx.from.id.toString() !== process.env.ADMIN_ID) {
     return ctx.reply("❌ លោកម្ចាស់អត់មានសិទ្ធិទាញទិន្នន័យទេ!");
@@ -177,14 +181,17 @@ bot.command("export", async (ctx) => {
       csvContent += `${s.id},"${s.fullname}","${s.phone}","${s.course}","${s.registered_at}"\n`;
     });
 
-    const fileName = `Student_List_${Date.now()}.csv`;
+    // ប្រើ /tmp សម្រាប់ Render ព្រោះ Render មិនឱ្យ save file ផ្ដេសផ្ដាសទេ (Read-only file system issues)
+    const fileName = `/tmp/Student_List_${Date.now()}.csv`;
+
+    // បើ /tmp error អាចសាកប្រើ path.join(__dirname, `Student_List_${Date.now()}.csv`) តែនៅលើ Render ជាធម្មតា /tmp ល្អជាង
     fs.writeFileSync(fileName, csvContent);
 
     await ctx.replyWithDocument(
-      { source: fileName },
+      { source: fileName, filename: `Student_List_${Date.now()}.csv` }, // ប្រាប់ឈ្មោះ File ច្បាស់លាស់ពេលផ្ញើ
       { caption: "📊 បញ្ជីឈ្មោះសិស្សទាំងអស់!" },
     );
-    fs.unlinkSync(fileName);
+    fs.unlinkSync(fileName); // លុបវិញក្រោយផ្ញើរួច
   } catch (err) {
     console.error(err);
     ctx.reply("❌ បញ្ហាបច្ចេកទេសក្នុងការ Export!");
@@ -201,7 +208,7 @@ bot.command("list", async (ctx) => {
     rows.forEach((s, i) => {
       report += `${i + 1}. ${s.fullname} (${s.course})\n`;
     });
-    ctx.replyWithMarkdown(report);
+    ctx.reply(report, { parse_mode: "Markdown" }); // ដូរពី replyWithMarkdown មកអញ្ចេះវិញ ងាយស្រួលជាង
   } catch (err) {
     ctx.reply("❌ មិនអាចទាញទិន្នន័យបានទេ!");
   }
@@ -209,14 +216,23 @@ bot.command("list", async (ctx) => {
 
 // --- ៦. ការរៀបចំ Server & Launch ---
 const PORT = process.env.PORT || 3000;
+
+// សំខាន់សម្រាប់ Render: ត្រូវឱ្យ Express ដើរមុន ឬទន្ទឹមគ្នា
 initDb()
   .then(() => {
-    bot.launch().then(() => console.log("🤖 Telegram Bot is online!"));
-    app.listen(PORT, () =>
-      console.log(`🌐 Server & Web View live on port ${PORT}`),
-    );
+    app.listen(PORT, () => {
+      console.log(`🌐 Server is live on port ${PORT}`);
+    });
+
+    bot
+      .launch()
+      .then(() => console.log("🤖 Telegram Bot is online!"))
+      .catch((err) => console.error("❌ Bot Launch Error:", err));
   })
   .catch((err) => console.error("❌ DB Error:", err));
+
+// បើក Webhook ជំនួស Polling (បើបងចង់ឱ្យវាលឿន និងមិនងាយគាំងលើ Render)
+// តែបច្ចុប្បន្នទុក bot.launch() សិនក៏បាន គ្រាន់តែ Render Free Tier អាចនឹង sleep រៀងរាល់ ១៥នាទី។
 
 process.once("SIGINT", () => bot.stop("SIGINT"));
 process.once("SIGTERM", () => bot.stop("SIGTERM"));

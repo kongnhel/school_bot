@@ -33,14 +33,14 @@
             <% majors.forEach(major => { %>
                 <div class="card">
                     <div class="info">
-                        <span class="badge">ID: <%= major.id %></span>
+                        <span class="badge">ID: <%= major._id %></span>
                         <span class="title-text"><%= major.major_name %></span>
                     </div>
                     <div class="action-group">
-                        <button class="btn-icon btn-edit" onclick="openEditModal('<%= major.id %>', '<%= major.major_name %>')">
+                        <button class="btn-icon btn-edit" onclick="openEditModal('<%= major._id %>', '<%= major.major_name %>')">
                             <i class="fas fa-pen"></i>
                         </button>
-                        <a href="/admin/majors/delete/<%= major.id %>" 
+                        <a href="/admin/majors/delete/<%= major._id %>" 
                            class="btn-icon btn-delete" 
                            onclick="return confirm('តើអ្នកពិតជាចង់លុបជំនាញនេះមែនទេ?')">
                             <i class="far fa-trash-alt"></i>
@@ -71,14 +71,14 @@
                 <% students.forEach(student => { %>
                     <div class="card student-item">
                         <div class="info">
-                            <span class="badge">Student ID: <%= student.id %></span>
+                            <span class="badge">Student ID: <%= student._id %></span>
                             <span class="title-text student-name"><%= student.fullname %></span>
                             <div class="sub-text">
                                 <span><i class="fas fa-phone-alt"></i> <%= student.phone %></span>
                                 <span><i class="fas fa-book-reader"></i> <%= student.course %></span>
                             </div>
                         </div>
-                        <a href="/admin/students/delete/<%= student.id %>" 
+                        <a href="/admin/students/delete/<%= student._id %>" 
                            class="btn-icon btn-delete" 
                            onclick="return confirm('តើអ្នកពិតជាចង់លុបសិស្សនេះចេញពីបញ្ជីមែនទេ?')">
                             <i class="far fa-trash-alt"></i>
@@ -125,7 +125,6 @@
             if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
         }
 
-        // បើក Modal សម្រាប់ថែមថ្មី
         function openAddModal() {
             document.getElementById('modalTitle').innerHTML = '<i class="fas fa-plus-circle"></i> បន្ថែមជំនាញថ្មី';
             document.getElementById('majorForm').action = '/admin/majors/add';
@@ -133,7 +132,6 @@
             document.getElementById('majorModal').style.display = 'flex';
         }
 
-        // បើក Modal សម្រាប់កែសម្រួល
         function openEditModal(id, name) {
             document.getElementById('modalTitle').innerHTML = '<i class="fas fa-edit"></i> កែសម្រួលជំនាញ';
             document.getElementById('majorForm').action = '/admin/majors/update/' + id;
@@ -145,7 +143,6 @@
             document.getElementById('majorModal').style.display = 'none';
         }
 
-        // បិទ Modal ពេលចុចក្រៅ Card
         window.onclick = (e) => { if(e.target.id === 'majorModal') closeModal(); }
 
         function filterStudents() {
@@ -162,7 +159,8 @@
             let items = document.querySelectorAll('.student-item');
             items.forEach(item => {
                 if(item.style.display !== 'none') {
-                    let id = item.querySelector('.badge').innerText.replace('STUDENT ID: ', '');
+                    // អូនបានកែពាក្យ 'STUDENT ID: ' មកជា 'Student ID: ' ឱ្យត្រូវ Case គ្នាទើបកាត់អក្សរចេញបានល្អ
+                    let id = item.querySelector('.badge').innerText.replace('Student ID: ', '');
                     let name = item.querySelector('.student-name').innerText;
                     let phone = item.querySelectorAll('.sub-text span')[0].innerText.trim();
                     let course = item.querySelectorAll('.sub-text span')[1].innerText.trim();
