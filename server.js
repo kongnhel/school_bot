@@ -3,7 +3,9 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const registrationWizard = require("./scenes/registration");
-const { initDb, pool } = require("./config/database");
+
+// ✅ នាំចូល Student និង Major ពី Mongoose (លែងប្រើ pool ហើយ)
+const { initDb, Student, Major } = require("./config/database");
 require("dotenv").config();
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
@@ -20,19 +22,19 @@ const stage = new Scenes.Stage([registrationWizard]);
 bot.use(session());
 bot.use(stage.middleware());
 
-// --- ៣. WEB ROUTES (សម្រាប់ Admin Panel) ---
+// --- ៣. WEB ROUTES (សម្រាប់ Admin Panel ជាមួយ MongoDB) ---
 app.get("/", (req, res) =>
-  res.send("Bot & Admin Panel is running on Render! 🚀"),
+  res.send("Bot & Admin Panel is running on Railway with MongoDB! 🚀"),
 );
 
 app.get("/admin/panel", async (req, res) => {
   try {
-    const [majors] = await pool.query("SELECT * FROM majors ORDER BY id DESC");
-    const [students] = await pool.query(
-      "SELECT * FROM students ORDER BY registered_at DESC",
-    );
+    // ទាញទិន្នន័យពី MongoDB តាមរយៈ Mongoose
+    const majors = await Major.find().sort({ _id: -1 });
+    const students = await Student.find().sort({ registered_at: -1 });
     res.render("admin", { majors, students });
   } catch (err) {
+    console.error("Admin Panel Error:", err);
     res.status(500).send("Error loading Admin Panel");
   }
 });
@@ -40,10 +42,7 @@ app.get("/admin/panel", async (req, res) => {
 app.post("/admin/majors/add", async (req, res) => {
   const { major_name } = req.body;
   try {
-    if (major_name)
-      await pool.query("INSERT INTO majors (major_name) VALUES (?)", [
-        major_name.trim(),
-      ]);
+    if (major_name) await Major.create({ major_name: major_name.trim() });
     res.redirect("/admin/panel");
   } catch (err) {
     res.status(500).send("Add Major Failed");
@@ -53,11 +52,9 @@ app.post("/admin/majors/add", async (req, res) => {
 app.post("/admin/majors/update/:id", async (req, res) => {
   const { major_name } = req.body;
   try {
-    if (major_name)
-      await pool.query("UPDATE majors SET major_name = ? WHERE id = ?", [
-        major_name.trim(),
-        req.params.id,
-      ]);
+    if (major_name) {
+      await Major.findByIdAndUpdate(req.params.id, { major_name: major_name.trim() });
+    }
     res.redirect("/admin/panel");
   } catch (err) {
     res.status(500).send("Update Major Failed");
@@ -66,7 +63,7 @@ app.post("/admin/majors/update/:id", async (req, res) => {
 
 app.get("/admin/majors/delete/:id", async (req, res) => {
   try {
-    await pool.query("DELETE FROM majors WHERE id = ?", [req.params.id]);
+    await Major.findByIdAndDelete(req.params.id);
     res.redirect("/admin/panel");
   } catch (err) {
     res.status(500).send("Delete Major Failed");
@@ -76,16 +73,13 @@ app.get("/admin/majors/delete/:id", async (req, res) => {
 app.post("/admin/students/update/:id", async (req, res) => {
   const { fullname, phone, course } = req.body;
   try {
-    if (fullname || phone || course) {
-      await pool.query(
-        "UPDATE students SET fullname = COALESCE(?, fullname), phone = COALESCE(?, phone), course = COALESCE(?, course) WHERE id = ?",
-        [
-          fullname?.trim() || null,
-          phone?.trim() || null,
-          course?.trim() || null,
-          req.params.id,
-        ],
-      );
+    const updateData = {};
+    if (fullname) updateData.fullname = fullname.trim();
+    if (phone) updateData.phone = phone.trim();
+    if (course) updateData.course = course.trim();
+
+    if (Object.keys(updateData).length > 0) {
+      await Student.findByIdAndUpdate(req.params.id, updateData);
     }
     res.redirect("/admin/panel");
   } catch (err) {
@@ -95,7 +89,7 @@ app.post("/admin/students/update/:id", async (req, res) => {
 
 app.get("/admin/students/delete/:id", async (req, res) => {
   try {
-    await pool.query("DELETE FROM students WHERE id = ?", [req.params.id]);
+    await Student.findByIdAndDelete(req.params.id);
     res.redirect("/admin/panel");
   } catch (err) {
     res.status(500).send("Delete Student Failed");
@@ -117,7 +111,7 @@ bot.start((ctx) => {
 bot.action("COURSE_INFO", async (ctx) => {
   ctx.answerCbQuery();
   try {
-    const [rows] = await pool.query("SELECT major_name FROM majors");
+    const rows = await Major.find(); // Mongoose
     if (rows.length === 0) return ctx.reply("📚 មិនទាន់មានវគ្គសិក្សានៅឡើយទេ។");
     let message = "📚 **វគ្គសិក្សាដែលមានបង្រៀន៖**\n\n";
     rows.forEach((row) => {
@@ -150,8 +144,7 @@ bot.action("REGISTER_NOW", (ctx) => {
 bot.command("panel", (ctx) => {
   if (ctx.from.id.toString() !== process.env.ADMIN_ID) return;
 
-  // ⚠️ នេះគឺជា Link ពិតប្រាកដរបស់បងនៅលើ Railway ដែលបងទើបថតរូបបង្ហាញអូន!
-  // កុំភ្លេចរក្សាទុក /admin/panel នៅខាងចុងដដែល
+  // Link ពិតប្រាកដរបស់ Railway
   const webAppUrl = "https://schoolbot-production.up.railway.app/admin/panel";
 
   ctx.reply(
@@ -168,28 +161,24 @@ bot.command("export", async (ctx) => {
   }
 
   try {
-    const [rows] = await pool.query(
-      "SELECT * FROM students ORDER BY registered_at DESC",
-    );
+    const rows = await Student.find().sort({ registered_at: -1 }); // Mongoose
     if (rows.length === 0) return ctx.reply("📭 មិនទាន់មានសិស្សចុះឈ្មោះទេ។");
 
-    let csvContent = "\ufeff";
-    csvContent += "លេខសម្គាល់,ឈ្មោះពេញ,លេខទូរស័ព្ទ,ជំនាញ,ថ្ងៃចុះឈ្មោះ\n";
+    let csvContent = "\ufeffលេខសម្គាល់,ឈ្មោះពេញ,លេខទូរស័ព្ទ,ជំនាញ,ថ្ងៃចុះឈ្មោះ\n";
     rows.forEach((s) => {
-      csvContent += `${s.id},"${s.fullname}","${s.phone}","${s.course}","${s.registered_at}"\n`;
+      // កែទម្រង់ថ្ងៃខែឱ្យស្អាត និងប្រើ _id
+      const dateStr = new Date(s.registered_at).toLocaleString('en-GB'); 
+      csvContent += `${s._id},"${s.fullname}","${s.phone}","${s.course}","${dateStr}"\n`;
     });
 
-    // ប្រើ /tmp សម្រាប់ Render ព្រោះ Render មិនឱ្យ save file ផ្ដេសផ្ដាសទេ (Read-only file system issues)
     const fileName = `/tmp/Student_List_${Date.now()}.csv`;
-
-    // បើ /tmp error អាចសាកប្រើ path.join(__dirname, `Student_List_${Date.now()}.csv`) តែនៅលើ Render ជាធម្មតា /tmp ល្អជាង
     fs.writeFileSync(fileName, csvContent);
 
     await ctx.replyWithDocument(
-      { source: fileName, filename: `Student_List_${Date.now()}.csv` }, // ប្រាប់ឈ្មោះ File ច្បាស់លាស់ពេលផ្ញើ
+      { source: fileName, filename: `Student_List_${Date.now()}.csv` },
       { caption: "📊 បញ្ជីឈ្មោះសិស្សទាំងអស់!" },
     );
-    fs.unlinkSync(fileName); // លុបវិញក្រោយផ្ញើរួច
+    fs.unlinkSync(fileName); 
   } catch (err) {
     console.error(err);
     ctx.reply("❌ បញ្ហាបច្ចេកទេសក្នុងការ Export!");
@@ -199,14 +188,12 @@ bot.command("export", async (ctx) => {
 bot.command("list", async (ctx) => {
   if (ctx.from.id.toString() !== process.env.ADMIN_ID) return;
   try {
-    const [rows] = await pool.query(
-      "SELECT * FROM students ORDER BY registered_at DESC LIMIT 10",
-    );
+    const rows = await Student.find().sort({ registered_at: -1 }).limit(10); // Mongoose
     let report = "📋 **បញ្ជីសិស្សថ្មីៗ៖**\n\n";
     rows.forEach((s, i) => {
       report += `${i + 1}. ${s.fullname} (${s.course})\n`;
     });
-    ctx.reply(report, { parse_mode: "Markdown" }); // ដូរពី replyWithMarkdown មកអញ្ចេះវិញ ងាយស្រួលជាង
+    ctx.reply(report, { parse_mode: "Markdown" }); 
   } catch (err) {
     ctx.reply("❌ មិនអាចទាញទិន្នន័យបានទេ!");
   }
@@ -215,7 +202,6 @@ bot.command("list", async (ctx) => {
 // --- ៦. ការរៀបចំ Server & Launch ---
 const PORT = process.env.PORT || 3000;
 
-// សំខាន់សម្រាប់ Render: ត្រូវឱ្យ Express ដើរមុន ឬទន្ទឹមគ្នា
 initDb()
   .then(() => {
     app.listen(PORT, () => {
@@ -228,9 +214,6 @@ initDb()
       .catch((err) => console.error("❌ Bot Launch Error:", err));
   })
   .catch((err) => console.error("❌ DB Error:", err));
-
-// បើក Webhook ជំនួស Polling (បើបងចង់ឱ្យវាលឿន និងមិនងាយគាំងលើ Render)
-// តែបច្ចុប្បន្នទុក bot.launch() សិនក៏បាន គ្រាន់តែ Render Free Tier អាចនឹង sleep រៀងរាល់ ១៥នាទី។
 
 process.once("SIGINT", () => bot.stop("SIGINT"));
 process.once("SIGTERM", () => bot.stop("SIGTERM"));
