@@ -153,7 +153,7 @@ bot.command("panel", (ctx) => {
   // ⚠️ សំខាន់៖ បងត្រូវយក URL របស់ Render មកដាក់ជំនួស .ngrok-free.dev
   // ឧទាហរណ៍: https://school-bot-app.onrender.com/admin/panel
   const renderUrl =
-    process.env.WEB_APP_URL || "schoolbot-production.up.railway.app";
+    process.env.WEB_APP_URL || "schoolbot-production.up.railway.app/admin/panel";
   const webAppUrl = `${renderUrl}/admin/panel`;
 
   ctx.reply(
