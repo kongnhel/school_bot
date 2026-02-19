@@ -1,5 +1,6 @@
 const { Scenes, Markup } = require('telegraf');
-const { pool } = require('../config/database');
+// នាំចូល Model ពី Mongoose ជំនួស pool របស់ MySQL
+const { Student, Major } = require('../config/database');
 
 const registrationWizard = new Scenes.WizardScene(
   'REGISTRATION_SCENE',
@@ -33,8 +34,8 @@ const registrationWizard = new Scenes.WizardScene(
     ctx.wizard.state.formData.phone = phone;
 
     try {
-      // --- ផ្នែក Dynamic: ទាញយកជំនាញពី Table majors ---
-      const [rows] = await pool.query('SELECT major_name FROM majors');
+      // --- ផ្នែក Dynamic: ទាញយកជំនាញពី MongoDB (Collection majors) ---
+      const rows = await Major.find(); // ប្រើ Mongoose ជំនួស MySQL
       
       if (rows.length === 0) {
         ctx.reply('❌ សុំទោស! បច្ចុប្បន្នមិនទាន់មានវគ្គសិក្សាបើកឱ្យចុះឈ្មោះទេ។');
@@ -59,7 +60,7 @@ const registrationWizard = new Scenes.WizardScene(
 
   // ជំហានទី ៤: រក្សាទុកទិន្នន័យចុះឈ្មោះ
   async (ctx) => {
-    const { fullname, phone, validCourses } = ctx.wizard.state.formData;
+    const { fullname, phone } = ctx.wizard.state.formData;
     const course = ctx.message.text;
 
     // ផ្ទៀងផ្ទាត់ថាជំនាញដែលសិស្សវាយ/ចុច គឺមានក្នុងបញ្ជីពិតមែន
@@ -68,10 +69,12 @@ const registrationWizard = new Scenes.WizardScene(
     }
 
     try {
-      await pool.query(
-        'INSERT INTO students (fullname, phone, course) VALUES (?, ?, ?)',
-        [fullname, phone, course]
-      );
+      // ប្រើ Mongoose ដើម្បី Save ចូល Database
+      await Student.create({
+        fullname: fullname,
+        phone: phone,
+        course: course
+      });
 
       if (process.env.ADMIN_ID) {
         ctx.telegram.sendMessage(process.env.ADMIN_ID, 
@@ -84,7 +87,7 @@ const registrationWizard = new Scenes.WizardScene(
       );
 
     } catch (err) {
-      console.error('MySQL Error:', err);
+      console.error('MongoDB Error:', err);
       ctx.reply('❌ បញ្ហាបច្ចេកទេស! សូមព្យាយាមម្តងទៀតក្រោយ។', Markup.removeKeyboard());
     }
     return ctx.scene.leave();
