@@ -150,11 +150,9 @@ bot.action("REGISTER_NOW", (ctx) => {
 bot.command("panel", (ctx) => {
   if (ctx.from.id.toString() !== process.env.ADMIN_ID) return;
 
-  // ⚠️ សំខាន់៖ បងត្រូវយក URL របស់ Render មកដាក់ជំនួស .ngrok-free.dev
-  // ឧទាហរណ៍: https://school-bot-app.onrender.com/admin/panel
-  const renderUrl =
-    process.env.WEB_APP_URL || "schoolbot-production.up.railway.app/admin/panel";
-  const webAppUrl = `${renderUrl}/admin/panel`;
+  // ⚠️ នេះគឺជា Link ពិតប្រាកដរបស់បងនៅលើ Railway ដែលបងទើបថតរូបបង្ហាញអូន!
+  // កុំភ្លេចរក្សាទុក /admin/panel នៅខាងចុងដដែល
+  const webAppUrl = "https://schoolbot-production.up.railway.app/admin/panel";
 
   ctx.reply(
     "🛠️ សូមចុចប៊ូតុងខាងក្រោមដើម្បីបើកផ្ទាំងគ្រប់គ្រង៖",
