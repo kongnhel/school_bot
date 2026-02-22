@@ -145,7 +145,7 @@ bot.command("panel", (ctx) => {
   if (ctx.from.id.toString() !== process.env.ADMIN_ID) return;
 
   // Link ពិតប្រាកដរបស់ Railway
-  const webAppUrl = "schoolbot-production.up.railway.app/admin/panel";
+  const webAppUrl = "https://schoolbot-production.up.railway.app/admin/panel";
   // const webAppUrl = "https://fusilly-nadene-recloseable.ngrok-free.dev/admin/panel";
 
   ctx.reply(
